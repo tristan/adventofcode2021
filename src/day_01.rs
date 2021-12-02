@@ -24,7 +24,7 @@ fn main() {
     println!("part2: {}", part2(&input));
 }
 
-#[test]
+#[cfg(test)]
 mod test {
 
     use super::{part1, part2};
