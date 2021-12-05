@@ -32,27 +32,35 @@ const W: usize = 1000;
 
 fn part1(input: &[(usize, usize, usize, usize)]) -> usize {
     let mut grid = vec![0u8; W * W];
-    input.iter().for_each(
-        |&(x1, y1, x2, y2)| {
+    input.iter().fold(
+        0,
+        |mut count, &(x1, y1, x2, y2)| {
             if x1 == x2 || y1 == y2 {
                 let (x1, x2) = (x1.min(x2), x1.max(x2));
                 let (y1, y2) = (y1.min(y2), y1.max(y2));
                 for x in x1..=x2 {
                     for y in y1..=y2 {
-                        grid[(y * W) + x] += 1;
+                        let v = &mut grid[(y * W) + x];
+                        match v {
+                            0 => *v = 1,
+                            1 => {
+                                *v = 2;
+                                count += 1;
+                            },
+                            _ => {}
+                        }
                     }
                 }
             }
-        });
-    grid.into_iter()
-        .filter(|&v| v > 1)
-        .count()
+            count
+        })
 }
 
 fn part2(input: &[(usize, usize, usize, usize)]) -> usize {
     let mut grid = vec![0u8; W * W];
-    input.iter().for_each(
-        |&(x1, y1, x2, y2)| {
+    input.iter().fold(
+        0,
+        |mut count, &(x1, y1, x2, y2)| {
             let xiter: Box<dyn Iterator<Item=usize>> = match x1.cmp(&x2) {
                 Ordering::Equal => Box::new(std::iter::repeat(x1)),
                 Ordering::Greater => Box::new((x2..=x1).rev()),
@@ -64,12 +72,18 @@ fn part2(input: &[(usize, usize, usize, usize)]) -> usize {
                 Ordering::Less => Box::new(y1..=y2)
             };
             for (x, y) in xiter.zip(yiter) {
-                grid[(y * W) + x] += 1;
+                let v = &mut grid[(y * W) + x];
+                match v {
+                    0 => *v = 1,
+                    1 => {
+                        *v = 2;
+                        count += 1;
+                    },
+                    _ => {}
+                }
             }
-        });
-    grid.into_iter()
-        .filter(|&v| v > 1)
-        .count()
+            count
+        })
 }
 
 #[cfg(test)]
