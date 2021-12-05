@@ -1,15 +1,14 @@
-use std::collections::HashMap;
 use std::cmp::Ordering;
 
-use adventofcode2021::time;
-
 fn main() {
-    let input = parse_input(include_str!("../day_05_input.txt"));
-    println!("part1: {}", time!(part1(&input)));
-    println!("part2: {}", time!(part2(&input)));
+    adventofcode2021::print_time!({
+        let input = parse_input(include_str!("../day_05_input.txt"));
+        println!("part1: {}", part1(&input));
+        println!("part2: {}", part2(&input));
+    });
 }
 
-fn parse_input(input: &str) -> Vec<(u64, u64, u64, u64)> {
+fn parse_input(input: &str) -> Vec<(usize, usize, usize, usize)> {
     input.split('\n')
         .filter(|line| !line.is_empty())
         .map(|line| {
@@ -17,7 +16,7 @@ fn parse_input(input: &str) -> Vec<(u64, u64, u64, u64)> {
                 .split(" -> ")
                 .map(|vert| vert
                      .split(',')
-                     .map(|part| part.parse::<u64>().unwrap())
+                     .map(|part| part.parse::<usize>().unwrap())
                 )
                 .flatten();
             let x1 = parts.next().unwrap();
@@ -29,50 +28,46 @@ fn parse_input(input: &str) -> Vec<(u64, u64, u64, u64)> {
         .collect()
 }
 
-fn part1(input: &[(u64, u64, u64, u64)]) -> usize {
-    let map = input.iter().fold(
-        HashMap::new(),
-        |mut map, &(x1, y1, x2, y2)| {
+const W: usize = 1000;
+
+fn part1(input: &[(usize, usize, usize, usize)]) -> usize {
+    let mut grid = vec![0u8; W * W];
+    input.iter().for_each(
+        |&(x1, y1, x2, y2)| {
             if x1 == x2 || y1 == y2 {
                 let (x1, x2) = (x1.min(x2), x1.max(x2));
                 let (y1, y2) = (y1.min(y2), y1.max(y2));
                 for x in x1..=x2 {
                     for y in y1..=y2 {
-                        let current = map.entry((x, y))
-                            .or_insert(0);
-                        *current += 1;
+                        grid[(y * W) + x] += 1;
                     }
                 }
             }
-            map
         });
-    map.into_values()
+    grid.into_iter()
         .filter(|&v| v > 1)
         .count()
 }
 
-fn part2(input: &[(u64, u64, u64, u64)]) -> usize {
-    let map = input.iter().fold(
-        HashMap::new(),
-        |mut map, &(x1, y1, x2, y2)| {
-            let xiter: Box<dyn Iterator<Item=u64>> = match x1.cmp(&x2) {
+fn part2(input: &[(usize, usize, usize, usize)]) -> usize {
+    let mut grid = vec![0u8; W * W];
+    input.iter().for_each(
+        |&(x1, y1, x2, y2)| {
+            let xiter: Box<dyn Iterator<Item=usize>> = match x1.cmp(&x2) {
                 Ordering::Equal => Box::new(std::iter::repeat(x1)),
                 Ordering::Greater => Box::new((x2..=x1).rev()),
                 Ordering::Less => Box::new(x1..=x2)
             };
-            let yiter: Box<dyn Iterator<Item=u64>> = match y1.cmp(&y2) {
+            let yiter: Box<dyn Iterator<Item=usize>> = match y1.cmp(&y2) {
                 Ordering::Equal => Box::new(std::iter::repeat(y1)),
                 Ordering::Greater => Box::new((y2..=y1).rev()),
                 Ordering::Less => Box::new(y1..=y2)
             };
             for (x, y) in xiter.zip(yiter) {
-                let current = map.entry((x, y))
-                    .or_insert(0);
-                *current += 1;
+                grid[(y * W) + x] += 1;
             }
-            map
         });
-    map.into_values()
+    grid.into_iter()
         .filter(|&v| v > 1)
         .count()
 }
@@ -94,7 +89,7 @@ mod test {
 5,5 -> 8,2
 "#;
 
-    fn get_test_input() -> Vec<(u64, u64, u64, u64)> {
+    fn get_test_input() -> Vec<(usize, usize, usize, usize)> {
         parse_input(TEST_INPUT)
     }
 

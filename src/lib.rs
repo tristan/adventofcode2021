@@ -1,8 +1,8 @@
 use std::time::Instant;
 
 pub struct TimedOutput<T> {
-    result: T,
-    time: f64
+    pub result: T,
+    pub time: f64
 }
 
 impl<T> std::fmt::Display for TimedOutput<T>
@@ -28,5 +28,14 @@ where F: FnOnce() -> T {
 macro_rules! time {
     ($f:expr) => {
         adventofcode2021::timeit(|| $f)
+    }
+}
+
+
+#[macro_export]
+macro_rules! print_time {
+    ($f:expr) => {
+        let adventofcode2021::TimedOutput { time, .. } = adventofcode2021::timeit(|| $f);
+        println!("took {} seconds", time);
     }
 }
