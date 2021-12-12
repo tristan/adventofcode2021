@@ -1,90 +1,71 @@
 use std::collections::{HashMap, HashSet};
 
-enum CaveSize {
-    Large,
-    Small
+struct Cave<'a> {
+    is_small: bool,
+    links: HashSet<&'a str>,
 }
 
-struct Cave {
-    size: CaveSize,
-    links: HashSet<String>,
-}
-
-impl Cave {
+impl<'a> Cave<'a> {
     fn new(name: &str) -> Cave {
-        let size = if name.chars().any(|c| c.is_uppercase()) {
-            CaveSize::Large
-        } else {
-            CaveSize::Small
-        };
         Cave {
-            size,
+            is_small: name.chars().any(|c| c.is_ascii_lowercase()),
             links: HashSet::new()
         }
     }
-
-    fn is_small(&self) -> bool {
-        matches!(&self.size, CaveSize::Small)
-    }
 }
 
-fn parse_input(input: &str) -> HashMap<String, Cave> {
+fn parse_input<'a>(input: &'a str) -> HashMap<&'a str, Cave> {
     let mut caves = HashMap::new();
     input.lines().filter(|line| !line.is_empty())
         .for_each(|line| {
             let mut s = line.split('-');
-            let start = s.next().unwrap().to_owned();
-            let end = s.next().unwrap().to_owned();
-            caves.entry(start.clone()).or_insert_with(|| Cave::new(&start))
-                .links.insert(end.clone());
-            caves.entry(end.clone()).or_insert_with(|| Cave::new(&end))
+            let start = s.next().unwrap();
+            let end = s.next().unwrap();
+            caves.entry(start).or_insert_with(|| Cave::new(start))
+                .links.insert(end);
+            caves.entry(end).or_insert_with(|| Cave::new(end))
                 .links.insert(start);
         });
     caves
 }
 
-fn search(
-    input: &HashMap<String, Cave>,
-    paths: &mut Vec<Vec<String>>,
-    current: String,
-    mut path: Vec<String>,
+fn search<'a>(
+    input: &'a HashMap<&'a str, Cave>,
+    current: &'a str,
+    mut path: HashSet<&'a str>,
     visited_small_twice: bool,
-) {
-    path.push(current.clone());
-    let cave = input.get(&current).unwrap();
+) -> usize {
+    path.insert(current);
+    let cave = input.get(current).unwrap();
+    let mut paths = 0;
     for next_cave_name in &cave.links {
-        if next_cave_name == "end" {
-            let mut final_path = path.clone();
-            final_path.push("end".to_owned());
-            paths.push(final_path);
-        } else if next_cave_name == "start" {
+        if next_cave_name == &"end" {
+            paths += 1;
+        } else if next_cave_name == &"start" {
             continue;
         } else {
             let next_cave = input.get(next_cave_name).unwrap();
-            if next_cave.is_small() && path.contains(next_cave_name) {
+            if next_cave.is_small && path.contains(next_cave_name) {
                 if visited_small_twice {
                     // dead end
                     continue;
                 } else {
-                    search(input, paths, next_cave_name.clone(), path.clone(), true);
+                    paths += search(input, next_cave_name, path.clone(), true);
                 }
             } else {
-                search(input, paths, next_cave_name.clone(), path.clone(), visited_small_twice);
+                paths += search(input, next_cave_name, path.clone(), visited_small_twice);
             }
         }
     }
+    paths
 }
 
-fn part1(input: &HashMap<String, Cave>) -> usize {
-    let mut paths = Vec::new();
-    search(input, &mut paths, "start".to_owned(), vec![], true);
-    paths.len()
+fn part1(input: &HashMap<&str, Cave>) -> usize {
+    search(input, "start", HashSet::new(), true)
 }
 
-fn part2(input: &HashMap<String, Cave>) -> usize {
-    let mut paths = Vec::new();
-    search(input, &mut paths, "start".to_owned(), vec![], false);
-    paths.len()
+fn part2(input: &HashMap<&str, Cave>) -> usize {
+    search(input, "start", HashSet::new(), false)
 }
 
 fn main() {
