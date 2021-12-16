@@ -20,19 +20,6 @@ fn parse_input(input: &str) -> Vec<bool> {
     }).flatten().collect()
 }
 
-#[derive(Debug)]
-enum ParserState {
-    Start,
-    Header(usize, usize),
-    Operator(usize),
-}
-
-#[derive(Debug)]
-enum SubPacket {
-    Length(usize),
-    Packets(usize)
-}
-
 fn bits_to_num(bits: &[bool]) -> usize {
     bits.iter().fold(
         0,
@@ -40,111 +27,103 @@ fn bits_to_num(bits: &[bool]) -> usize {
     )
 }
 
-fn part1(input: &[bool]) -> usize {
-    let mut parser_state = ParserState::Start;
-    let mut pointer = 0;
-    let mut version_sums = 0;
-    let mut stack = vec![];
-    loop {
-        match parser_state {
-            ParserState::Start => {
-                // check end conditions
-                if pointer + 6 > input.len() - 1 {
-                    break;
-                }
-                // pop stack
+fn process_packet(input: &[bool], mut pointer: usize) -> Option<(usize, usize, usize)> {
+    if pointer + 6 > input.len() - 1 {
+        None
+    } else {
+        // read 3 bits and produce version
+        let v = bits_to_num(&input[pointer..pointer + 3]);
+        let t = bits_to_num(&input[pointer + 3..pointer + 6]);
+        pointer += 6;
+        match t {
+            4 => {
+                // data
+                let mut data = 0usize;
                 loop {
-                    match stack.pop() {
-                        Some(SubPacket::Packets(n)) => {
-                            if n > 0 {
-                                stack.push(SubPacket::Packets(n - 1));
-                                break;
-                            }
-                        },
-                        Some(SubPacket::Length(end)) => {
-                            if pointer + 6 > end - 1 {
-                                pointer = pointer.max(end);
-                            } else {
-                                stack.push(SubPacket::Length(end));
-                                break;
-                            }
-                        },
-                        None => { break; }
+                    let part = bits_to_num(&input[pointer + 1..pointer + 5]);
+                    data = (data << 4) + part;
+                    pointer += 5;
+                    if !input[pointer - 5] {
+                        break;
                     }
                 }
-                // read 3 bits and produce version
-                let v = bits_to_num(&input[pointer..pointer + 3]);
-                let t = bits_to_num(&input[pointer + 3..pointer + 6]);
-                parser_state = ParserState::Header(v, t);
-                pointer += 6;
+                Some((pointer, v, data))
             },
-            ParserState::Header(v, t) => {
-                version_sums += v;
-                match t {
-                    4 => {
-                        // data
-                        let mut data = 0usize;
-                        loop {
-                            let part = bits_to_num(&input[pointer + 1..pointer + 5]);
-                            data = (data << 4) + part;
-                            pointer += 5;
-                            if !input[pointer - 5] {
-                                break;
-                            }
-                        }
-                        //dbg!(data);
-                        parser_state = ParserState::Start;
-                    },
-                    _ => {
-                        parser_state = ParserState::Operator(t)
-                    }
-                }
-            },
-            ParserState::Operator(_) => {
+            _ => {
+                // read sub packets
                 if pointer > input.len() - 1 {
-                    break;
+                    return None;
                 }
+                let mut version_sums = v;
+                let mut results = vec![];
                 if input[pointer] {
                     // 11 bit - number of packets
                     if pointer + 12 > input.len() - 1 {
-                        break;
+                        return None;
                     }
                     let num_packets = bits_to_num(&input[pointer + 1..pointer + 12]);
                     pointer += 12;
-                    stack.push(SubPacket::Packets(num_packets));
+                    for _ in 0..num_packets {
+                        match process_packet(input, pointer) {
+                            Some((npointer, vsums, result)) => {
+                                pointer = npointer;
+                                version_sums += vsums;
+                                results.push(result);
+                            },
+                            None => panic!("unexpected eol in op")
+                        }
+                    }
                 } else {
                     // 15 bit - total length of packets
                     if pointer + 16 > input.len() - 1 {
-                        break;
+                        return None;
                     }
                     let len = bits_to_num(&input[pointer + 1..pointer + 16]);
                     pointer += 16;
-                    stack.push(SubPacket::Length(pointer + len));
+                    let end = pointer + len;
+                    loop {
+                        if pointer + 6 > end {
+                            pointer = pointer.max(end);
+                            break;
+                        }
+                        match process_packet(input, pointer) {
+                            Some((npointer, vsums, result)) => {
+                                pointer = npointer;
+                                version_sums += vsums;
+                                results.push(result);
+                            },
+                            None => panic!("unexpected eol in op")
+                        }
+                    }
                 }
-                parser_state = ParserState::Start;
+                Some((pointer, version_sums, match t {
+                    0 => results.into_iter().sum(),
+                    1 => results.into_iter().product(),
+                    2 => results.into_iter().min().unwrap(),
+                    3 => results.into_iter().max().unwrap(),
+                    5 => if results[0] > results[1] { 1 } else { 0 },
+                    6 => if results[0] < results[1] { 1 } else { 0 },
+                    7 => if results[0] == results[1] { 1 } else { 0 },
+                    _ => panic!("unknown op")
+                }))
             }
         }
     }
-    version_sums
 }
-
-fn part2(_input: &[bool]) -> usize {
-    0
-}
-
 
 fn main() {
     adventofcode2021::print_time!({
         let input = parse_input(include_str!("../day_16_input.txt"));
-        println!("part1: {}", part1(&input));
-        println!("part2: {}", part2(&input));
+        let res = process_packet(&input, 0).unwrap();
+        println!("part1: {}", res.1);
+        println!("part2: {}", res.2);
     });
 }
 
 #[cfg(test)]
 mod test {
 
-    use super::{parse_input, part1, part2};
+    use super::{parse_input, process_packet};
 
     const TEST_INPUT_1: &str = r#"8A004A801A8002F478
 "#;
@@ -158,13 +137,16 @@ mod test {
     const TEST_INPUT_5: &str = "EE00D40C823060";
     const TEST_INPUT_6: &str = "38006F45291200";
 
+    fn part1(input: &[bool]) -> usize {
+        process_packet(input, 0).unwrap().1
+    }
+
+    fn part2(input: &[bool]) -> usize {
+        process_packet(input, 0).unwrap().2
+    }
+
     #[test]
     fn test_part1() {
-        use super::bits_to_num;
-        assert_eq!(
-            bits_to_num(&[false, false, false, false, false, false, false, false, false, false, true, true, false, true, true]),
-            27
-        );
         assert_eq!(part1(&parse_input(TEST_INPUT_1)), 16);
         assert_eq!(part1(&parse_input(TEST_INPUT_2)), 12);
         assert_eq!(part1(&parse_input(TEST_INPUT_3)), 23);
@@ -173,8 +155,15 @@ mod test {
         assert_eq!(part1(&parse_input(TEST_INPUT_6)), 9);
     }
 
-    // #[test]
-    // fn test_part2() {
-    //     assert_eq!(part2(&parse_input(TEST_INPUT_1)), 0);
-    // }
+    #[test]
+    fn test_part2() {
+        assert_eq!(part2(&parse_input("C200B40A82")), 3);
+        assert_eq!(part2(&parse_input("04005AC33890")), 54);
+        assert_eq!(part2(&parse_input("880086C3E88112")), 7);
+        assert_eq!(part2(&parse_input("CE00C43D881120")), 9);
+        assert_eq!(part2(&parse_input("D8005AC2A8F0")), 1);
+        assert_eq!(part2(&parse_input("F600BC2D8F")), 0);
+        assert_eq!(part2(&parse_input("9C005AC2F8F0")), 0);
+        assert_eq!(part2(&parse_input("9C0141080250320F1802104A08")), 1);
+    }
 }
