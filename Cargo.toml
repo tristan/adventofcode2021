@@ -73,6 +73,10 @@ path = "src/day_16.rs"
 name = "day_17"
 path = "src/day_17.rs"
 
+[[bin]]
+name = "day_18"
+path = "src/day_18.rs"
+
 [lib]
 path = "src/lib.rs"
 
