@@ -44,12 +44,7 @@ impl std::ops::Add for &Num {
         } else if rhs.0.is_empty() {
             self.clone()
         } else {
-            let mut n = self.clone();
-            n.0.insert(0, Node::Open);
-            n.0.extend(rhs.0.clone());
-            n.0.push(Node::Close);
-            n.normalise();
-            n
+            self.clone() + rhs.clone()
         }
     }
 }
@@ -70,13 +65,9 @@ impl Num {
         while idx < self.0.len() {
             match self.0.get(idx) {
                 Some(&Node::Number(n)) if n > 9 => {
-                    self.0.remove(idx);
                     let left = n / 2;
                     let right = n - left;
-                    self.0.insert(idx, Node::Close);
-                    self.0.insert(idx, Node::Number(right));
-                    self.0.insert(idx, Node::Number(left));
-                    self.0.insert(idx, Node::Open);
+                    self.0.splice(idx..=idx, [Node::Open, Node::Number(left), Node::Number(right), Node::Close]);
                     return true;
                 },
                 _ => {
@@ -95,11 +86,7 @@ impl Num {
             if depth == 5 {
                 let left = self.0.get(idx).unwrap().unwrap();
                 let right = self.0.get(idx + 1).unwrap().unwrap();
-                assert!(matches!(self.0.remove(idx - 1), Node::Open));
-                assert!(matches!(self.0.remove(idx - 1), Node::Number(_left)));
-                assert!(matches!(self.0.remove(idx - 1), Node::Number(_right)));
-                assert!(matches!(self.0.remove(idx - 1), Node::Close));
-                self.0.insert(idx - 1, Node::Number(0));
+                self.0.splice(idx - 1..idx + 3, [Node::Number(0)]);
                 if let Some(Node::Number(n)) = self.0[..idx-1].iter_mut().rfind(|x| matches!(x, Node::Number(_))) {
                     *n += left
                 }
@@ -140,28 +127,28 @@ impl Num {
     }
 
     fn magnitude(&self) -> u64 {
-        let mut x = self.0.clone();
-        while x.len() > 1 {
-            let mut res = Vec::with_capacity(x.len());
-            let mut matched = false;
-            for w in x.windows(4) {
-                if matched {
-                    res.push(w[3]);
-                } else {
-                    match w {
-                        [Node::Open, Node::Number(left), Node::Number(right), Node::Close] => {
-                            res.push(Node::Number(left * 3 + right * 2));
-                            matched = true;
-                        },
-                        _ => {
-                            res.push(w[0]);
-                        }
+        let mut mutliplier = 1;
+        let mut output = 0;
+        let last = self.0.len() - 1;
+        for (i, sym) in self.0.iter().enumerate() {
+            match sym {
+                Node::Open => mutliplier *= 3,
+                Node::Close => {
+                    mutliplier /= 2;
+                    if i < last && matches!(self.0.get(i + 1), Some(Node::Open | Node::Number(_))) {
+                        mutliplier = (mutliplier / 3) * 2;
+                    }
+                },
+                Node::Number(num) => {
+                    output += mutliplier * *num as u64;
+                    if i < last && matches!(self.0.get(i + 1), Some(Node::Open | Node::Number(_))) {
+                        mutliplier = (mutliplier / 3) * 2;
                     }
                 }
             }
-            x = res;
+
         }
-        x[0].unwrap()
+        output
     }
 }
 
