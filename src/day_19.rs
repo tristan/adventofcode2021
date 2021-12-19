@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::cmp::Ordering;
 
 fn parse_input(input: &str) -> Vec<Vec<(i32, i32, i32)>> {
     input.split("\n\n")
@@ -29,9 +28,7 @@ struct Rotation {
     y: usize,
     z: usize,
     step: usize,
-    flipped: bool,
     list: Vec<(i32, i32, i32)>,
-    orig: Vec<(i32, i32, i32)>
 }
 
 impl Rotation {
@@ -41,8 +38,6 @@ impl Rotation {
             y: 0,
             z: 0,
             step: 0,
-            flipped: false,
-            orig: list.clone(),
             list
         }
     }
@@ -91,10 +86,10 @@ impl Iterator for Rotation {
     }
 }
 
-fn part1(input: &[Vec<(i32, i32, i32)>]) -> usize {
+fn solve(input: &[Vec<(i32, i32, i32)>]) -> (usize, i32) {
     let mut result = input[0].clone();
-    // dbg!(Rotation::new(result.clone()).count());
-    // return 0;
+
+    let mut scanner_positions = vec![];
 
     let mut remaining = input.iter().cloned().enumerate().skip(1)
         .collect::<Vec<_>>();
@@ -120,6 +115,8 @@ fn part1(input: &[Vec<(i32, i32, i32)>]) -> usize {
                             .collect::<Vec<_>>();
                         if int.len() >= 12 {
                             println!("YES!");
+                            println!("scanner: {},{},{}", diff.0, diff.1, diff.2);
+                            scanner_positions.push(diff);
                             for p in int {
                                 println!("{},{},{}", p.0, p.1, p.2);
                             }
@@ -135,13 +132,28 @@ fn part1(input: &[Vec<(i32, i32, i32)>]) -> usize {
             }
         }
     }
-    result.len()
+    (
+        result.len(),
+        scanner_positions.iter().enumerate().map(|(i, a)| {
+            scanner_positions.iter().enumerate().filter_map(|(j, b)| {
+                if i == j {
+                    None
+                } else {
+                    Some(
+                        (a.0 - b.0) + (a.1 - b.1) + (a.2 - b.2)
+                    )
+                }
+            }).collect::<Vec<_>>()
+        }).flatten().max().unwrap()
+    )
 }
 
 fn main() {
     adventofcode2021::print_time!({
         let input = parse_input(include_str!("../day_19_input.txt"));
-        println!("part1: {}", part1(&input));
+        let res = solve(&input);
+        println!("part1: {}", res.0);
+        println!("part2: {}", res.1);
     });
 }
 
@@ -149,7 +161,7 @@ fn main() {
 #[cfg(test)]
 mod test {
 
-    use super::{parse_input, Rotation, part1};
+    use super::{parse_input, Rotation, solve};
 
     #[test]
     fn test_rotate() {
@@ -182,8 +194,8 @@ mod test {
     }
 
     #[test]
-    fn test_part1() {
+    fn test_solve() {
         let input = parse_input(include_str!("../day_19_test_input.txt"));
-        assert_eq!(part1(&input), 79);
+        assert_eq!(dbg!(solve(&input)), (79, 3621));
     }
 }
